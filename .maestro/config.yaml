@@ -1,0 +1,10 @@
+# Maestro workspace configuration
+
+# Flow hooks
+flows:
+  onFailure:
+    - takeScreenshot: "screenshots/${TEST_NAME:-test}_failure_${MAESTRO_TIMESTAMP}.png"
+
+# Debug settings
+debug:
+  saveScreenshots: true
