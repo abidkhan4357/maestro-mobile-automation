@@ -1,0 +1,23 @@
+appId: com.saucelabs.mydemoapp.android
+tags:
+  - login
+  - regression
+env:
+  TEST_NAME: "login_visual_user"
+---
+# Load elements and test data
+- runScript: ../../../../data/elements/android/navigation.js
+- runScript: ../../../../data/elements/android/login.js
+- runScript: ../../../../data/login-data.js
+
+- runFlow: ../common/launch-app-fresh.yaml
+
+- runFlow: ../common/navigate-to-login.yaml
+
+- runFlow:
+    file: ../common/login-as-user.yaml
+    env:
+      USER_EMAIL: ${output.users.visual.email}
+      USER_PASSWORD: ${output.users.visual.password}
+
+- runFlow: ../common/assert-logged-in.yaml

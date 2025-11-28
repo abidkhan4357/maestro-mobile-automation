@@ -1,0 +1,15 @@
+appId: com.saucelabs.mydemoapp.android
+env:
+  USER_EMAIL: ${USER_EMAIL}
+  USER_PASSWORD: ${USER_PASSWORD}
+---
+- tapOn:
+    id: ${output.loginPage.emailField}
+- inputText: ${USER_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: ${output.loginPage.passwordField}
+- inputText: ${USER_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: ${output.loginPage.loginButton}

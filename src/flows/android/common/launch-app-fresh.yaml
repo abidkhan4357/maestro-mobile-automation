@@ -1,0 +1,4 @@
+appId: com.saucelabs.mydemoapp.android
+---
+- launchApp:
+    clearState: true

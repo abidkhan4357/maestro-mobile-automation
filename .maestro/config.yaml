@@ -1,9 +1,27 @@
 # Maestro workspace configuration
 
-# Flow hooks
+# Flow inclusion patterns
 flows:
-  onFailure:
-    - takeScreenshot: "screenshots/${TEST_NAME:-test}_failure_${MAESTRO_TIMESTAMP}.png"
+  - "src/flows/android/**"
+
+# Execution order for critical tests
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - login-standard
+
+# Flow hooks
+onFlowStart:
+  - runScript: data/elements/android/navigation.js
+  - runScript: data/elements/android/login.js
+  - runScript: data/elements/android/home.js
+  - runScript: data/login-data.js
+
+onFlowComplete:
+  - takeScreenshot: "screenshots/${TEST_NAME:-test}_success_${MAESTRO_TIMESTAMP}.png"
+
+onFailure:
+  - takeScreenshot: "screenshots/${TEST_NAME:-test}_failure_${MAESTRO_TIMESTAMP}.png"
 
 # Debug settings
 debug:
