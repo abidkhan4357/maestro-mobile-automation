@@ -1,0 +1,73 @@
+name: Maestro Android Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Maestro CLI
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Start Android Emulator and Run Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          ram-size: 4096M
+          heap-size: 1024M
+          target: google_apis
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            # Install the app
+            adb install apps/android/saucelabs-demo.apk
+
+            # Wait for app to be installed
+            sleep 5
+
+            # Run Maestro tests with JUnit and HTML reports
+            ~/.maestro/bin/maestro test \
+              --format junit \
+              --output reports/junit-report.xml \
+              src/flows/android/login/ || true
+
+            # Generate HTML report
+            ~/.maestro/bin/maestro test \
+              --format html \
+              --output reports/html-report.html \
+              src/flows/android/login/ || true
+
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maestro-test-reports
+          path: |
+            reports/
+            ~/.maestro/tests/
+          retention-days: 30
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action/macos@v2
+        if: always()
+        with:
+          files: reports/junit-report.xml
