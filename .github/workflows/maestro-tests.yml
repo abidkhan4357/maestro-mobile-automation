@@ -9,8 +9,8 @@ on:
 
 jobs:
   test:
-    runs-on: macos-13  # Use Intel macOS for x86_64 emulator support
-    timeout-minutes: 30
+    runs-on: macos-13
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -22,40 +22,66 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Maestro CLI
-        run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-
-      - name: Cache Maestro
+      - name: Cache Maestro CLI
+        id: cache-maestro
         uses: actions/cache@v4
         with:
           path: ~/.maestro
-          key: maestro-${{ runner.os }}
+          key: maestro-cli-${{ runner.os }}-v1
 
-      - name: Start Android Emulator and Run Tests
+      - name: Install Maestro CLI
+        if: steps.cache-maestro.outputs.cache-hit != 'true'
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Add Maestro to PATH
+        run: echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Cache AVD
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-api29-${{ runner.os }}-v1
+
+      - name: Create AVD and generate snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 29
           arch: x86_64
-          ram-size: 4096M
-          heap-size: 1024M
-          target: google_apis
+          target: default
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: echo "Generated AVD snapshot for caching"
+
+      - name: Run Tests on Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: default
+          force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          force-avd-creation: false
-          emulator-boot-timeout: 300
           script: |
+            # Wait for emulator to be fully ready
+            adb wait-for-device
+            sleep 10
+
             # Create reports directory
             mkdir -p reports
 
             # Install the app
             adb install apps/android/saucelabs-demo.apk
 
-            # Wait for app to be installed
+            # Wait for app install
             sleep 5
 
-            # Run Maestro tests with JUnit report
+            # Run Maestro tests
             ~/.maestro/bin/maestro test \
               --format junit \
               --output reports/junit-report.xml \
