@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    runs-on: macos-latest
+    runs-on: macos-13  # Use Intel macOS for x86_64 emulator support
     timeout-minutes: 30
 
     steps:
@@ -43,6 +43,8 @@ jobs:
           target: google_apis
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
+          force-avd-creation: false
+          emulator-boot-timeout: 300
           script: |
             # Create reports directory
             mkdir -p reports
