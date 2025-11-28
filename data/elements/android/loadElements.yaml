@@ -1,0 +1,5 @@
+appId: com.saucelabs.mydemoapp.android
+---
+- runScript: navigation.js
+- runScript: login.js
+- runScript: home.js

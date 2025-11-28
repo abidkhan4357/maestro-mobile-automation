@@ -1,0 +1,21 @@
+appId: com.saucelabs.mydemoapp.android
+tags:
+  - login
+  - negative
+  - regression
+env:
+  TEST_NAME: "login_empty_fields"
+---
+# Load elements and test data
+- runScript: ../../../../data/elements/android/navigation.js
+- runScript: ../../../../data/elements/android/login.js
+- runScript: ../../../../data/login-data.js
+
+- runFlow: ../common/launch-app-fresh.yaml
+
+- runFlow: ../common/navigate-to-login.yaml
+
+- tapOn:
+    id: ${output.loginPage.loginButton}
+
+- assertVisible: "Username is required"

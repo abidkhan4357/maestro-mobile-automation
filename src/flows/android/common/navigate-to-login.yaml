@@ -1,0 +1,4 @@
+appId: com.saucelabs.mydemoapp.android
+---
+- runFlow: open-menu.yaml
+- tapOn: ${output.nav.menuItems.login}

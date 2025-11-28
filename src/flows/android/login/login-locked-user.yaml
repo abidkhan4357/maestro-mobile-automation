@@ -1,0 +1,24 @@
+appId: com.saucelabs.mydemoapp.android
+tags:
+  - login
+  - negative
+  - regression
+env:
+  TEST_NAME: "login_locked_user"
+---
+# Load elements and test data
+- runScript: ../../../../data/elements/android/navigation.js
+- runScript: ../../../../data/elements/android/login.js
+- runScript: ../../../../data/login-data.js
+
+- runFlow: ../common/launch-app-fresh.yaml
+
+- runFlow: ../common/navigate-to-login.yaml
+
+- runFlow:
+    file: ../common/login-as-user.yaml
+    env:
+      USER_EMAIL: ${output.users.locked.email}
+      USER_PASSWORD: ${output.users.locked.password}
+
+- assertVisible: "Sorry this user has been locked out."
