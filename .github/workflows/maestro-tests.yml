@@ -9,12 +9,18 @@ on:
 
 jobs:
   test:
-    runs-on: macos-13
-    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -31,8 +37,7 @@ jobs:
 
       - name: Install Maestro CLI
         if: steps.cache-maestro.outputs.cache-hit != 'true'
-        run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
 
       - name: Add Maestro to PATH
         run: echo "$HOME/.maestro/bin" >> $GITHUB_PATH
@@ -54,8 +59,8 @@ jobs:
           arch: x86_64
           target: default
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
           script: echo "Generated AVD snapshot for caching"
 
       - name: Run Tests on Emulator
@@ -65,23 +70,17 @@ jobs:
           arch: x86_64
           target: default
           force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            # Wait for emulator to be fully ready
             adb wait-for-device
-            sleep 10
-
-            # Create reports directory
-            mkdir -p reports
-
-            # Install the app
-            adb install apps/android/saucelabs-demo.apk
-
-            # Wait for app install
             sleep 5
 
-            # Run Maestro tests
+            mkdir -p reports
+
+            adb install apps/android/saucelabs-demo.apk
+            sleep 3
+
             ~/.maestro/bin/maestro test \
               --format junit \
               --output reports/junit-report.xml \
@@ -98,7 +97,7 @@ jobs:
           retention-days: 30
 
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/macos@v2
+        uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           files: reports/junit-report.xml
