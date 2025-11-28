@@ -27,6 +27,12 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
+      - name: Cache Maestro
+        uses: actions/cache@v4
+        with:
+          path: ~/.maestro
+          key: maestro-${{ runner.os }}
+
       - name: Start Android Emulator and Run Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -38,23 +44,20 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: |
+            # Create reports directory
+            mkdir -p reports
+
             # Install the app
             adb install apps/android/saucelabs-demo.apk
 
             # Wait for app to be installed
             sleep 5
 
-            # Run Maestro tests with JUnit and HTML reports
+            # Run Maestro tests with JUnit report
             ~/.maestro/bin/maestro test \
               --format junit \
               --output reports/junit-report.xml \
-              src/flows/android/login/ || true
-
-            # Generate HTML report
-            ~/.maestro/bin/maestro test \
-              --format html \
-              --output reports/html-report.html \
-              src/flows/android/login/ || true
+              src/flows/android/login/
 
       - name: Upload Test Reports
         uses: actions/upload-artifact@v4
