@@ -1,0 +1,106 @@
+name: Maestro Android Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  API_LEVEL: 29
+  ANDROID_ARCH: x86_64
+  ANDROID_TARGET: default
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Maestro CLI
+        id: cache-maestro
+        uses: actions/cache@v4
+        with:
+          path: ~/.maestro
+          key: maestro-cli-${{ runner.os }}-v2
+
+      - name: Install Maestro CLI
+        if: steps.cache-maestro.outputs.cache-hit != 'true'
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Add Maestro to PATH
+        run: echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Cache AVD
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-api${{ env.API_LEVEL }}-${{ runner.os }}-v2
+
+      - name: Create AVD and generate snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          arch: ${{ env.ANDROID_ARCH }}
+          target: ${{ env.ANDROID_TARGET }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 300
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching"
+
+      - name: Run Tests on Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          arch: ${{ env.ANDROID_ARCH }}
+          target: ${{ env.ANDROID_TARGET }}
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 180
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q 1 || sleep 5
+            mkdir -p reports
+            adb install -r apps/android/saucelabs-demo.apk
+            ~/.maestro/bin/maestro test --format junit --output reports/junit-report.xml src/flows/android/login/
+
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maestro-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: reports/junit-report.xml
