@@ -12,10 +12,15 @@ permissions:
   checks: write
   pull-requests: write
 
+env:
+  API_LEVEL: 29
+  ANDROID_ARCH: x86_64
+  ANDROID_TARGET: default
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -38,7 +43,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.maestro
-          key: maestro-cli-${{ runner.os }}-v1
+          key: maestro-cli-${{ runner.os }}-v2
 
       - name: Install Maestro CLI
         if: steps.cache-maestro.outputs.cache-hit != 'true'
@@ -54,35 +59,35 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-api29-${{ runner.os }}-v1
+          key: avd-api${{ env.API_LEVEL }}-${{ runner.os }}-v2
 
       - name: Create AVD and generate snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          arch: x86_64
-          target: default
+          api-level: ${{ env.API_LEVEL }}
+          arch: ${{ env.ANDROID_ARCH }}
+          target: ${{ env.ANDROID_TARGET }}
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 300
           disable-animations: false
           script: echo "Generated AVD snapshot for caching"
 
       - name: Run Tests on Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          arch: x86_64
-          target: default
+          api-level: ${{ env.API_LEVEL }}
+          arch: ${{ env.ANDROID_ARCH }}
+          target: ${{ env.ANDROID_TARGET }}
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 180
           disable-animations: true
           script: |
-            adb wait-for-device
-            sleep 5
+            adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
             mkdir -p reports
-            adb install apps/android/saucelabs-demo.apk
-            sleep 3
+            adb install -r apps/android/saucelabs-demo.apk
             ~/.maestro/bin/maestro test --format junit --output reports/junit-report.xml src/flows/android/login/
 
       - name: Upload Test Reports
@@ -90,10 +95,8 @@ jobs:
         if: always()
         with:
           name: maestro-test-reports
-          path: |
-            reports/
-            ~/.maestro/tests/
-          retention-days: 30
+          path: reports/
+          retention-days: 7
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
